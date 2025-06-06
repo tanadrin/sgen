@@ -2,6 +2,7 @@
 """
 Sound change application for word generator.
 Handles all replacement rule parsing and application, including syllable and stress-sensitive rules.
+Updated to handle weighted categories and reserved character validation.
 """
 
 import re
@@ -17,7 +18,7 @@ def clean_word_for_processing(word: str) -> str:
 
 def validate_category_definition(category_char: str, characters: str, line_num: int) -> bool:
     """Validate that a category definition doesn't use reserved characters."""
-    reserved_chars = set('ˈˌ˘σ![]()²-→/>#:')
+    reserved_chars = set('ˈˌ˘σ![]()²-→/>#:{}')  # Added {} to reserved chars
     
     # Check category character
     if category_char in reserved_chars:
@@ -35,7 +36,7 @@ def validate_category_definition(category_char: str, characters: str, line_num: 
 
 def validate_dictionary_word(word: str) -> str:
     """Validate and clean dictionary word, warning about problematic characters."""
-    problematic_chars = set('σ![]()²-→/>#:')
+    problematic_chars = set('σ![]()²-→/>#:{}')  # Added {} to problematic chars
     found_problematic = []
     
     for char in word:
@@ -536,8 +537,9 @@ def get_replacement_output(matched_segment: str, input_pattern: str, output_patt
         if (len(input_pattern) == 1 and input_pattern in categories and
             len(output_pattern) == 1 and output_pattern in categories):
             
-            input_chars = categories[input_pattern]
-            output_chars = categories[output_pattern]
+            # Get unique characters from categories (remove duplicates for comparison)
+            input_chars = list(dict.fromkeys(categories[input_pattern]))  # Preserve order, remove dupes
+            output_chars = list(dict.fromkeys(categories[output_pattern]))
             
             if len(input_chars) != len(output_chars):
                 return None  # Categories don't match in length
@@ -559,8 +561,8 @@ def get_replacement_output(matched_segment: str, input_pattern: str, output_patt
             result.append(matched_char + matched_char)
         elif output_char in categories and i < len(input_pattern) and input_pattern[i] in categories:
             # Both input and output are categories
-            input_chars = categories[input_pattern[i]]
-            output_chars = categories[output_char]
+            input_chars = list(dict.fromkeys(categories[input_pattern[i]]))
+            output_chars = list(dict.fromkeys(categories[output_char]))
             
             if len(input_chars) != len(output_chars):
                 return None  # Categories don't match in length
@@ -711,8 +713,12 @@ def apply_replacement_rules(words: List[str], replacement_rules: List[Tuple[str,
                 if (len(input_part) == 1 and input_part in categories and
                     len(output_part) == 1 and output_part in categories):
                     
-                    if len(categories[input_part]) != len(categories[output_part]):
-                        print(f"Warning: Categories {input_part} and {output_part} have different lengths on line {line_num}. Rule ignored.")
+                    # Get unique characters for length comparison
+                    input_unique = list(dict.fromkeys(categories[input_part]))
+                    output_unique = list(dict.fromkeys(categories[output_part]))
+                    
+                    if len(input_unique) != len(output_unique):
+                        print(f"Warning: Categories {input_part} and {output_part} have different unique character counts on line {line_num}. Rule ignored.")
                         continue
                 
                 # Check if rule applies before applying it

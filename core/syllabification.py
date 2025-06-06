@@ -2,6 +2,7 @@
 """
 Syllabification module for word generator.
 Handles parsing syllabification rules and applying them to words.
+Updated to work correctly with weighted categories.
 """
 
 import random
@@ -43,10 +44,14 @@ def clean_word_for_processing(word: str) -> str:
 
 
 def expand_category_in_rule(rule_part: str, categories: Dict[str, List[str]]) -> List[str]:
-    """Expand a rule part that might contain categories into concrete strings."""
+    """
+    Expand a rule part that might contain categories into concrete strings.
+    Updated to work with weighted categories (uses unique characters only).
+    """
     if len(rule_part) == 1 and rule_part in categories:
-        # Single category
-        return categories[rule_part]
+        # Single category - get unique characters only
+        unique_chars = list(dict.fromkeys(categories[rule_part]))
+        return unique_chars
     else:
         # Check if it contains categories mixed with literals
         result = []
@@ -54,10 +59,11 @@ def expand_category_in_rule(rule_part: str, categories: Dict[str, List[str]]) ->
         
         for char in rule_part:
             if char in categories:
-                # Expand this category
+                # Expand this category - use unique characters only
+                unique_chars = list(dict.fromkeys(categories[char]))
                 new_expanded_parts = []
                 for existing_part in expanded_parts:
-                    for category_char in categories[char]:
+                    for category_char in unique_chars:
                         new_expanded_parts.append(existing_part + [category_char])
                 expanded_parts = new_expanded_parts
             else:

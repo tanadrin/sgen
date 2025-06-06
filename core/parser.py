@@ -2,11 +2,72 @@
 """
 Input file parser for word generator.
 Handles parsing of categories, rules, replacement rules, and dictionary words.
+Now supports weighted categories using {weight} syntax.
 """
 
 import sys
+import re
 from typing import Dict, List, Tuple, Optional
 from core.sound_changes import validate_category_definition, validate_dictionary_word
+
+
+def parse_weighted_category(content: str) -> List[Tuple[str, int]]:
+    """
+    Parse a category with optional weights into (character, weight) tuples.
+    
+    Examples:
+    - "a{3} e{2} i o u" -> [('a', 3), ('e', 2), ('i', 1), ('o', 1), ('u', 1)]
+    - "aeiou" -> [('a', 1), ('e', 1), ('i', 1), ('o', 1), ('u', 1)]
+    - "bcdfg" -> [('b', 1), ('c', 1), ('d', 1), ('f', 1), ('g', 1)]
+    """
+    items = []
+    
+    # Handle both weighted and unweighted entries
+    # Split by whitespace first to handle weighted entries properly
+    parts = content.split()
+    
+    for part in parts:
+        # Check if this part has a weight specification
+        if '{' in part and '}' in part:
+            # Extract character(s) and weight
+            brace_start = part.index('{')
+            brace_end = part.index('}')
+            
+            char = part[:brace_start]
+            weight_str = part[brace_start+1:brace_end]
+            
+            try:
+                weight = int(weight_str)
+                items.append((char, weight))
+            except ValueError:
+                # Invalid weight, treat as weight 1
+                items.append((char, 1))
+        else:
+            # No weight specification
+            # If this is a single part with no spaces, treat each character individually
+            for char in part:
+                items.append((char, 1))
+    
+    return items
+
+
+def expand_weighted_category(weighted_items: List[Tuple[str, int]]) -> List[str]:
+    """
+    Expand weighted category items into a list where each character appears
+    according to its weight.
+    
+    Example: [('a', 3), ('e', 2), ('i', 1)] -> ['a', 'a', 'a', 'e', 'e', 'i']
+    """
+    expanded = []
+    for char, weight in weighted_items:
+        # Handle multi-character entries properly
+        if len(char) > 1:
+            # For multi-character entries, treat as single unit repeated
+            expanded.extend([char] * weight)
+        else:
+            # For single characters, repeat according to weight
+            expanded.extend([char] * weight)
+    return expanded
 
 
 def expand_rule(rule: str) -> List[str]:
@@ -137,6 +198,8 @@ def _validate_colon_usage(line: str, line_num: int) -> bool:
         return False
     
     return True
+
+
 def _categorize_line(line: str) -> Tuple[str, str]:
     """Categorize a line into its type and return (type, line)."""
     # Check if it's a category definition
@@ -248,11 +311,56 @@ def parse_input_file(filename: str, dict_mode: bool = False) -> Tuple[Dict[str, 
                 category_char = category_char.strip()
                 characters = characters.strip()
                 
-                # Validate category definition
-                if not validate_category_definition(category_char, characters, line_num):
+                # Parse weighted category
+                weighted_items = parse_weighted_category(characters)
+                
+                # Validate category definition (check the base characters, not weights)
+                base_chars = ''.join(char for char, weight in weighted_items)
+                if not validate_category_definition(category_char, base_chars, line_num):
                     sys.exit(1)
                 
-                categories[category_char] = list(characters)
+                # Also validate that no reserved characters appear in the original content
+                # This catches cases like a{b}cd where 'b' is inside braces
+                for char in characters:
+                    if char in 'ˈˌ˘σ![]()²-→/>#:{}':
+                        # Allow digits and braces only in proper weight syntax
+                        if char in '{}':
+                            # Check if this is part of a proper weight specification
+                            continue  # We'll validate this more carefully below
+                        elif char.isdigit():
+                            continue  # Digits are allowed in weight specifications
+                        else:
+                            print(f"Error: Line {line_num}: Category '{category_char}' contains reserved character '{char}'")
+                            sys.exit(1)
+                
+                # Additional validation for brace usage
+                if '{' in characters or '}' in characters:
+                    # Validate proper brace usage - must be in pairs with digits between
+                    import re
+                    # Find all brace pairs
+                    brace_pattern = r'\{([^}]*)\}'
+                    brace_matches = re.findall(brace_pattern, characters)
+                    
+                    for match in brace_matches:
+                        if not match.isdigit():
+                            print(f"Error: Line {line_num}: Invalid weight specification '{{{match}}}' in category '{category_char}'")
+                            sys.exit(1)
+                    
+                    # Check for unmatched braces
+                    open_braces = characters.count('{')
+                    close_braces = characters.count('}')
+                    if open_braces != close_braces:
+                        print(f"Error: Line {line_num}: Unmatched braces in category '{category_char}'")
+                        sys.exit(1)
+                
+                # Expand weighted category into final list
+                expanded_chars = expand_weighted_category(weighted_items)
+                categories[category_char] = expanded_chars
+                
+                # Print weight information if weights were specified
+                if any(weight != 1 for char, weight in weighted_items):
+                    weight_info = ', '.join(f"{char}:{weight}" for char, weight in weighted_items)
+                    print(f"Category '{category_char}' weights: {weight_info}")
             
             elif line_type == 'replacement':
                 # Normalize separators to /

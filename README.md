@@ -5,6 +5,7 @@ A flexible tool for generating words in constructed languages with support for p
 ## Features
 
 - **Word Generation**: Generate words based on syllable structure templates
+- **Weighted Categories**: Define categories where certain phonemes appear more frequently than others
 - **Flexible Rule Syntax**: Support for optional and alternative categories in templates
 - **Sound Changes**: Apply complex phonological rules with environmental conditioning
 - **Dictionary Mode**: Process existing word lists through sound change rules
@@ -48,7 +49,31 @@ L: lr             # Liquids
 N: mn             # Nasals
 ```
 
-**Important**: Category names and contents cannot use reserved characters: `ˈ ˌ ˘ σ ! [ ] ( ) ² - → / > # : _`
+#### Weighted Categories
+
+You can specify relative weights for characters within a category using `{weight}` syntax:
+
+```
+V: a{3} e{2} i{2} o{2} u{1}     # 'a' appears 3x as often as 'u'
+C: b c{2} d f g h j k l{3} m{2} n{3} p q r{4} s{2} t{3} v w x y z
+```
+
+**Weight Syntax:**
+- Characters without weights default to weight 1
+- `a{3}` means 'a' appears 3 times as often as unweighted characters
+- Mix weighted and unweighted: `a{3} e i{2} o u` (e, o, u have weight 1)
+
+**Examples:**
+```
+# Heavy bias toward certain sounds
+V: a{5} e{3} i o u           # 'a' dominates, 'e' common, others rare
+C: l{4} r{2} n{3} m t{2} s   # Liquids and nasals favored
+
+# Realistic frequency distribution
+V: a{3} e{4} i{2} o{2} u{1}  # Based on language frequency
+```
+
+**Important**: Category names and contents cannot use reserved characters: `ˈ ˌ ˘ σ ! [ ] ( ) ² - → / > # : _ { }`
 
 ### Word Structure Rules
 
@@ -96,6 +121,26 @@ n/²/_a           # Double 'n' before 'a' (² = doubling)
 ˘σ//ˈσ_σ         # Delete unstressed syllable after stressed syllable
 a/e/˘_           # Change 'a' to 'e' in unstressed syllables only
 ```
+
+#### Weighted Categories in Sound Changes
+
+When using category-to-category replacements with weighted categories, the system compares unique character counts:
+
+```
+P: p{1} t{3} k{2}    # 3 unique characters
+B: b{2} d{1} g{3}    # 3 unique characters
+P/B/_                # Valid: p→b, t→d, k→g
+
+P: p{1} t{3} k{2}    # 3 unique characters  
+V: a{5} e{3} i{1}    # 3 unique characters
+P/V/_                # Valid: p→a, t→e, k→i
+
+P: p{2} t{3}         # 2 unique characters
+B: b{1} d{2} g{3}    # 3 unique characters  
+P/B/_                # Invalid: will generate warning
+```
+
+The replacement mapping is based on the unique characters, not their weights.
 
 #### Syllable and Stress Rules
 
@@ -163,7 +208,7 @@ already.syllabified.word
 
 **Important Notes**: 
 - When using dictionary mode (`-d` flag), syllable boundaries (`.`) and stress marks (`ˈ`, `ˌ`) are automatically removed before applying sound change rules
-- Avoid using reserved characters in dictionary entries: `σ ! [ ] ( ) ² - → / > # :`
+- Avoid using reserved characters in dictionary entries: `σ ! [ ] ( ) ² - → / > # : { }`
 - Only use `.`, `ˈ`, `ˌ` for their intended syllabification and stress purposes
 
 ### Syllabification Section
@@ -286,21 +331,38 @@ modern  → ˌmo.ˈdern  [σ/ˈσ/#_]
 - `→` - Input/output separator (dictionary mode with `-i`)
 - `[rule]` - Applied sound change rule (with `-r`)
 - `²` - Doubling symbol (only in rules, not output)
+- `{weight}` - Weight specification (only in category definitions)
 
 ## Advanced Features
 
-### Category Length Matching
+### Weighted Category Examples
 
-When using category-to-category sound changes, both categories must have the same number of elements:
+Create realistic frequency distributions:
 
 ```
-P: ptk    # 3 elements
-B: bdg    # 3 elements
-P/B/_     # Valid: p→b, t→d, k→g
+# English-like vowel frequency
+V: e{12} a{8} i{7} o{7} u{3}
 
-P: ptk    # 3 elements  
-V: aeiou  # 5 elements
-P/V/_     # Invalid: will generate warning
+# Common vs. rare consonants
+C: n{7} r{6} t{6} s{6} l{4} d{4} c{3} m{3} p{3} f{2} g{2} h{2} b{1} v{1} k{1} j{1} x{1} q{1} z{1}
+
+# Favoring certain sound classes
+STOPS: p{1} t{3} k{2} b{1} d{2} g{1}
+FRICATIVES: f{2} s{4} h{3} v{1} z{1}
+```
+
+### Category Length Matching
+
+When using category-to-category sound changes, both categories must have the same number of unique elements:
+
+```
+P: p{1} t{3} k{2}    # 3 unique elements
+B: b{2} d{1} g{3}    # 3 unique elements
+P/B/_                # Valid: p→b, t→d, k→g
+
+P: p{1} t{2}         # 2 unique elements  
+V: a{5} e{3} i{1}    # 3 unique elements
+P/V/_                # Invalid: will generate warning
 ```
 
 ### Rule Expansion
@@ -351,16 +413,16 @@ V//_˘σ#          # Delete vowels before final unstressed syllables
 ## Example Input File
 
 ```
-# Phoneme inventory
-V: aeiou
-C: bcdfghjklmnpqrstvwxyz
-L: lr
-N: mn
-S: sz
-P: ptk
-B: bdg
+# Phoneme inventory with realistic frequency weights
+V: a{3} e{4} i{2} o{2} u{1}
+C: b c{2} d{2} f g h j k l{3} m{2} n{3} p q r{4} s{2} t{3} v w x y z
+L: l{3} r{1}
+N: m{2} n{3}
+S: s{3} z{1}
+P: p t{2} k
+B: b d{2} g
 
-# Syllable patterns  
+# Syllable patterns with weighted categories  
 CV
 CVC
 CV(L)V
@@ -370,8 +432,8 @@ C(V)CVC
 # Vowel harmony
 a/e/_CV
 
-# Consonant changes
-P/B/V_V          # Intervocalic voicing
+# Consonant changes with weighted categories
+P/B/V_V          # Intervocalic voicing (considers weights in mapping)
 C//_#            # Final consonant deletion
 L///_C           # Liquid deletion before consonants
 
@@ -407,6 +469,7 @@ The tool provides helpful error messages for:
 - Malformed syllabification rules
 - Use of reserved characters in categories
 - Invalid colon placement in category definitions
+- Invalid weight syntax in categories
 
 ## Reserved Characters
 
@@ -417,28 +480,31 @@ The following characters have special meanings and should not be used in categor
 - `! [ ] ( ) ² - → / > #` - Rule syntax characters
 - `:` - Category definition separator (must be in second position)
 - `.` - Syllable boundary marker (only for syllabification)
+- `{ }` - Weight specification markers (only for category weights)
 
 ## Tips
 
 1. **Start simple**: Begin with basic CV patterns and simple sound changes
 2. **Test incrementally**: Add rules one at a time to verify behavior
 3. **Use dictionary mode**: Test sound changes on known words first
-4. **Check category lengths**: Ensure category-to-category mappings have equal lengths
+4. **Check category lengths**: Ensure category-to-category mappings have equal unique character counts
 5. **Use comments**: Document your rules for future reference
 6. **Syllabification testing**: Use dictionary mode to test syllabification rules on existing words
 7. **Syllable-sensitive rules**: Enable `-s` flag to use prosodic phonology rules
 8. **Character restrictions**: Avoid reserved characters in categories and dictionary entries
 9. **Optional environments**: Use parentheses for optional elements in rule environments
 10. **Environment expansion**: Complex environments like `#(V)_V` are automatically expanded into all possible combinations
+11. **Weight testing**: Use larger word counts to see statistical effects of category weights
+12. **Realistic weights**: Base weights on actual language frequency data for more natural results
 
 ## File Structure
 
 The tool is organized into focused modules:
 
 - `word_generator.py` - Main entry point
-- `core/parser.py` - Input file parsing
+- `core/parser.py` - Input file parsing (with weighted category support)
 - `core/word_generation.py` - Word generation logic
-- `core/sound_changes.py` - Sound change application
+- `core/sound_changes.py` - Sound change application (with weighted category handling)
 - `core/syllabification.py` - Syllabification and stress
 - `utils/cli.py` - Command line interface
 - `utils/file_io.py` - File operations

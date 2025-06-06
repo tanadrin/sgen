@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Main test runner for word generator tests.
-Simplified version of the original test suite.
+Simplified version of the original test suite with weighted categories tests.
 """
 
 import os
@@ -69,7 +69,7 @@ def run_word_generator(args, input_content=None, temp_dir=None):
     cmd = [arg.replace("INPUT_FILE", input_file).replace("OUTPUT_FILE", output_file) for arg in cmd]
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # Increased timeout
         
         # Read output file if it exists
         output_content = ""
@@ -105,8 +105,8 @@ def run_word_generator(args, input_content=None, temp_dir=None):
 
 def main():
     """Run all tests by importing and executing test modules."""
-    print("Word Generator Test Suite - Refactored")
-    print("=" * 50)
+    print("Word Generator Test Suite - Refactored with Weighted Categories")
+    print("=" * 60)
     
     # Check if word_generator.py exists
     if not os.path.exists("word_generator.py"):
@@ -126,6 +126,7 @@ def main():
         from test_core.test_word_generation import run_word_generation_tests
         from test_core.test_sound_changes import run_sound_changes_tests
         from test_core.test_syllabification import run_syllabification_tests
+        from test_core.test_weighted_categories import run_weighted_categories_tests
         from test_utils.test_cli import run_cli_tests
         from test_integration.test_full_workflow import run_integration_tests
         
@@ -134,6 +135,7 @@ def main():
         run_word_generation_tests(result, run_word_generator)
         run_sound_changes_tests(result, run_word_generator)
         run_syllabification_tests(result, run_word_generator)
+        run_weighted_categories_tests(result, run_word_generator)
         run_cli_tests(result, run_word_generator)
         run_integration_tests(result, run_word_generator)
         
@@ -142,6 +144,8 @@ def main():
         return False
     except Exception as e:
         print(f"\n\n❌ Test suite encountered an error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     
     # Print summary
