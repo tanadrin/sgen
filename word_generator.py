@@ -22,7 +22,6 @@ from core.syllabification import parse_syllabification_rules, syllabify_word
 from utils.cli import parse_arguments
 from utils.file_io import write_output_file
 
-
 def main():
     """Main function to handle command line arguments and orchestrate word generation."""
     # Parse command line arguments
@@ -65,13 +64,24 @@ def main():
         words = generate_words(categories, weighted_rules, args.num_words)
         input_words = None
     
-    # Apply replacement rules
+    # Apply replacement rules - ALWAYS apply them if they exist
     applied_rules = None
     if replacement_rules:
+        print(f"Applying {len(replacement_rules)} replacement rules...")
         if args.show_rules:
-            words, applied_rules = apply_replacement_rules(words, replacement_rules, categories, track_rules=True, clean_dict_words=args.dict_mode, syllabify_mode=args.syllabify)
+            words, applied_rules = apply_replacement_rules(
+                words, replacement_rules, categories, 
+                track_rules=True, 
+                clean_dict_words=args.dict_mode,  # Clean dict words in dict mode
+                syllabify_mode=args.syllabify
+            )
         else:
-            words, _ = apply_replacement_rules(words, replacement_rules, categories, track_rules=False, clean_dict_words=args.dict_mode, syllabify_mode=args.syllabify)
+            words, _ = apply_replacement_rules(
+                words, replacement_rules, categories, 
+                track_rules=False, 
+                clean_dict_words=args.dict_mode,  # Clean dict words in dict mode
+                syllabify_mode=args.syllabify
+            )
     
     # Apply syllabification if requested
     if args.syllabify and syllabification_rules:
@@ -89,7 +99,6 @@ def main():
             print("\nGenerated words:")
     
     write_output_file(words, args.output_file, args.verbose, input_words, args.show_input, applied_rules, args.show_rules)
-
-
+    
 if __name__ == "__main__":
     main()

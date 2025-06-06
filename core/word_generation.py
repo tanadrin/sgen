@@ -6,6 +6,7 @@ Now supports weighted random rule selection instead of cycling.
 """
 
 import random
+import time
 from typing import Dict, List, Tuple
 
 
@@ -49,11 +50,21 @@ def select_random_rule(weighted_rules: List[Tuple[str, int]]) -> str:
     if not weighted_rules:
         raise ValueError("No rules provided for selection")
     
-    # Expand rules according to their weights
-    expanded_rules = expand_weighted_rules(weighted_rules)
+    # Calculate total weight
+    total_weight = sum(weight for rule, weight in weighted_rules)
     
-    # Select randomly from the expanded list
-    return random.choice(expanded_rules)
+    # Generate random number between 0 and total_weight - 1
+    random_value = random.randint(0, total_weight - 1)
+    
+    # Find which rule this maps to
+    current_weight = 0
+    for rule, weight in weighted_rules:
+        current_weight += weight
+        if random_value < current_weight:
+            return rule
+    
+    # Fallback (shouldn't happen)
+    return weighted_rules[0][0]
 
 
 def generate_words(categories: Dict[str, List[str]], weighted_rules: List[Tuple[str, int]], total_words: int) -> List[str]:
@@ -62,6 +73,9 @@ def generate_words(categories: Dict[str, List[str]], weighted_rules: List[Tuple[
     
     if not weighted_rules:
         return words
+    
+    # Initialize random seed based on current time to ensure different results each run
+    random.seed(time.time())
     
     # Print rule weight information if any rules have non-default weights
     rule_weights_info = []

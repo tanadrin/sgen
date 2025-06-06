@@ -240,10 +240,26 @@ def apply_stress_sensitive_character_replacement(word: str, rule: Dict[str, str]
     
     return join_syllables(result_syllables)
 
-
 def parse_replacement_rule(rule_str: str, line_num: int) -> Optional[Dict[str, str]]:
     """Parse a replacement rule string into components."""
-    # Split by / to get parts
+    # Handle empty replacement (deletion) rules like L///_C
+    if '//' in rule_str:
+        # Split on // first
+        parts = rule_str.split('//')
+        if len(parts) == 2:
+            input_part = parts[0]
+            rest = parts[1]
+            if rest.startswith('/'):
+                # Format: input//_environment
+                environment = rest[1:] if len(rest) > 1 else '_'
+                return {
+                    'input': input_part,
+                    'output': '',
+                    'environment': environment,
+                    'line_num': line_num
+                }
+    
+    # Original logic for other rule types
     parts = rule_str.split('/')
     
     if len(parts) == 1:
@@ -267,7 +283,6 @@ def parse_replacement_rule(rule_str: str, line_num: int) -> Optional[Dict[str, s
         'environment': environment,
         'line_num': line_num
     }
-
 
 def expand_environment_rule(environment: str) -> List[str]:
     """
@@ -692,7 +707,6 @@ def apply_replacement_rule(word: str, rule: Dict[str, str], categories: Dict[str
     
     return apply_standard_replacement(word, input_part, output_part, environment, categories)
 
-
 def apply_replacement_rules(words: List[str], replacement_rules: List[Tuple[str, int]], categories: Dict[str, List[str]], track_rules: bool = False, clean_dict_words: bool = False, syllabify_mode: bool = False) -> Tuple[List[str], Optional[List[List[str]]]]:
     """Apply all replacement rules to all words in order."""
     processed_words = []
@@ -728,6 +742,10 @@ def apply_replacement_rules(words: List[str], replacement_rules: List[Tuple[str,
                 # Track if rule was applied
                 if track_rules and old_word != current_word:
                     applied_rules.append(rule_str)
+                
+                # Debug output for failed tests
+                if old_word != current_word:
+                    print(f"Debug: Applied rule '{rule_str}' to '{old_word}' -> '{current_word}'")
         
         processed_words.append(current_word)
         if track_rules:
