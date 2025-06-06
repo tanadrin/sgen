@@ -2,10 +2,11 @@
 """
 Word generation for constructed languages.
 Handles generating words based on category definitions and structure rules.
+Now supports weighted random rule selection instead of cycling.
 """
 
 import random
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 def generate_word(rule: str, categories: Dict[str, List[str]]) -> str:
@@ -23,19 +24,58 @@ def generate_word(rule: str, categories: Dict[str, List[str]]) -> str:
     return word
 
 
-def generate_words(categories: Dict[str, List[str]], rules: List[str], total_words: int) -> List[str]:
-    """Generate a specified total number of words based on all rules."""
+def expand_weighted_rules(weighted_rules: List[Tuple[str, int]]) -> List[str]:
+    """
+    Expand weighted rules into a list where each rule appears according to its weight.
+    
+    Example: [("CV", 1), ("CVC", 2), ("CVCC", 3)] -> ["CV", "CVC", "CVC", "CVCC", "CVCC", "CVCC"]
+    """
+    expanded = []
+    for rule, weight in weighted_rules:
+        expanded.extend([rule] * weight)
+    return expanded
+
+
+def select_random_rule(weighted_rules: List[Tuple[str, int]]) -> str:
+    """
+    Select a random rule based on weights.
+    
+    Args:
+        weighted_rules: List of (rule, weight) tuples
+    
+    Returns:
+        A randomly selected rule string
+    """
+    if not weighted_rules:
+        raise ValueError("No rules provided for selection")
+    
+    # Expand rules according to their weights
+    expanded_rules = expand_weighted_rules(weighted_rules)
+    
+    # Select randomly from the expanded list
+    return random.choice(expanded_rules)
+
+
+def generate_words(categories: Dict[str, List[str]], weighted_rules: List[Tuple[str, int]], total_words: int) -> List[str]:
+    """Generate a specified total number of words using weighted random rule selection."""
     words = []
     
-    if not rules:
+    if not weighted_rules:
         return words
     
-    # Generate words by cycling through rules until we reach the target
-    rule_index = 0
+    # Print rule weight information if any rules have non-default weights
+    rule_weights_info = []
+    for rule, weight in weighted_rules:
+        if weight != 1:
+            rule_weights_info.append(f"{rule}:{weight}")
+    
+    if rule_weights_info:
+        print(f"Rule weights: {', '.join(rule_weights_info)}")
+    
+    # Generate words by randomly selecting rules
     for _ in range(total_words):
-        rule = rules[rule_index % len(rules)]
+        rule = select_random_rule(weighted_rules)
         word = generate_word(rule, categories)
         words.append(word)
-        rule_index += 1
     
     return words

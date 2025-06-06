@@ -5,6 +5,7 @@ Word Generator Script - REFACTORED VERSION
 Generates words based on category definitions and structure rules from an input file.
 Supports replacement rules for sound changes and dictionary mode.
 Now supports flexible rule syntax with optional categories and alternatives.
+Updated to support weighted rules with random selection.
 
 Usage: python word_generator.py [-v] [-d] [-i] [-r] <input_file> <output_file> <num_words>
   -v: verbose mode, also prints generated words to terminal
@@ -28,7 +29,7 @@ def main():
     args = parse_arguments()
     
     # Parse input file
-    categories, rules, replacement_rules, dict_words, syll_rules = parse_input_file(args.input_file, args.dict_mode)
+    categories, weighted_rules, replacement_rules, dict_words, syll_rules = parse_input_file(args.input_file, args.dict_mode)
     
     # Parse syllabification rules if present
     syllabification_rules = None
@@ -53,15 +54,15 @@ def main():
         if not categories:
             print("Warning: No categories found in input file.")
         
-        if not rules:
+        if not weighted_rules:
             print("Error: No word structure rules found in input file.")
             sys.exit(1)
         
         syll_info = f", {len(syll_rules)} syllabification rules" if syll_rules else ""
-        print(f"Found {len(categories)} categories, {len(rules)} word structure rules, and {len(replacement_rules)} replacement rules{syll_info}.")
+        print(f"Found {len(categories)} categories, {len(weighted_rules)} word structure rules, and {len(replacement_rules)} replacement rules{syll_info}.")
         
-        # Generate words
-        words = generate_words(categories, rules, args.num_words)
+        # Generate words using weighted random selection
+        words = generate_words(categories, weighted_rules, args.num_words)
         input_words = None
     
     # Apply replacement rules

@@ -25,14 +25,19 @@ ERROR_MESSAGES = {
     'no_rules': "Error: No word structure rules found in input file.",
     'flag_combination': "Error: -i flag can only be used with -d flag",
     'file_write_error': "Error writing output file: {}",
-    'file_read_error': "Error reading input file: {}"
+    'file_read_error': "Error reading input file: {}",
+    'invalid_rule_weight': "Error: Invalid weight specification in rule: {}",
+    'unmatched_braces_rule': "Error: Unmatched braces in rule weight specification",
+    'invalid_weight_value': "Error: Weight value must be a positive integer",
+    'weight_position_error': "Error: Weight specification must be at end of rule"
 }
 
 # Warning messages
 WARNING_MESSAGES = {
     'invalid_rule_format': "Warning: Invalid replacement rule format on line {}: '{}'",
     'category_length_mismatch': "Warning: Categories {} and {} have different lengths on line {}. Rule ignored.",
-    'invalid_line': "Warning: Line {} is not a valid category, replacement rule, or word structure rule: '{}'"
+    'invalid_line': "Warning: Line {} is not a valid category, replacement rule, or word structure rule: '{}'",
+    'rule_weight_ignored': "Warning: Rule weight ignored due to syntax error: '{}'"
 }
 
 # Success messages

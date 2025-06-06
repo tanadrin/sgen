@@ -2,7 +2,7 @@
 """
 Input file parser for word generator.
 Handles parsing of categories, rules, replacement rules, and dictionary words.
-Now supports weighted categories using {weight} syntax.
+Now supports weighted categories using {weight} syntax and weighted rules.
 """
 
 import sys
@@ -49,6 +49,43 @@ def parse_weighted_category(content: str) -> List[Tuple[str, int]]:
                 items.append((char, 1))
     
     return items
+
+
+def parse_weighted_rule(rule_line: str) -> Tuple[str, int]:
+    """
+    Parse a rule with optional weight into (rule, weight) tuple.
+    
+    Examples:
+    - "CV{10}" -> ("CV", 10)
+    - "CVCC{2}" -> ("CVCC", 2)
+    - "CVC" -> ("CVC", 1)
+    - "CV(C){3}" -> ("CV(C)", 3)
+    """
+    rule_line = rule_line.strip()
+    
+    # Check if this rule has a weight specification
+    if '{' in rule_line and '}' in rule_line:
+        # Find the last occurrence of { to handle cases like CV(C){3}
+        brace_start = rule_line.rfind('{')
+        brace_end = rule_line.rfind('}')
+        
+        if brace_start < brace_end and brace_end == len(rule_line) - 1:
+            # Weight is at the end of the line
+            rule = rule_line[:brace_start]
+            weight_str = rule_line[brace_start+1:brace_end]
+            
+            try:
+                weight = int(weight_str)
+                return (rule, weight)
+            except ValueError:
+                # Invalid weight, treat as weight 1
+                return (rule_line, 1)
+        else:
+            # Braces are not in weight position, treat as literal
+            return (rule_line, 1)
+    else:
+        # No weight specification
+        return (rule_line, 1)
 
 
 def expand_weighted_category(weighted_items: List[Tuple[str, int]]) -> List[str]:
@@ -210,23 +247,54 @@ def _categorize_line(line: str) -> Tuple[str, str]:
     elif any(sep in line for sep in ['/', '>', '→']):
         return 'replacement', line
     
-    # Check if it's a word structure rule (category characters and parentheses)
-    elif all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ()!,' or c.isalpha() for c in line):
+    # Check if it's a word structure rule (category characters, parentheses, and weight syntax)
+    elif all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ()!,{}0123456789' or c.isalpha() for c in line):
         return 'structure', line
     
     else:
         return 'unknown', line
 
 
-def parse_input_file(filename: str, dict_mode: bool = False) -> Tuple[Dict[str, List[str]], List[str], List[Tuple[str, int]], List[str], List[str]]:
+def _validate_rule_weight_syntax(rule: str, line_num: int) -> bool:
+    """Validate that weight syntax in rules is properly formatted."""
+    if '{' not in rule and '}' not in rule:
+        return True  # No weights, no problem
+    
+    # Check for unmatched braces
+    open_braces = rule.count('{')
+    close_braces = rule.count('}')
+    if open_braces != close_braces:
+        print(f"Error: Line {line_num}: Unmatched braces in rule weight specification")
+        return False
+    
+    # Find all weight specifications
+    import re
+    weight_pattern = r'\{([^}]*)\}$'  # Weight must be at end of line
+    weight_matches = re.findall(weight_pattern, rule)
+    
+    if open_braces > 0 and len(weight_matches) == 0:
+        print(f"Error: Line {line_num}: Invalid weight specification position in rule '{rule}'")
+        return False
+    
+    # Validate that weight content is numeric
+    for match in weight_matches:
+        if not match.isdigit() or int(match) <= 0:
+            print(f"Error: Line {line_num}: Invalid weight value '{{{match}}}' in rule")
+            return False
+    
+    return True
+
+
+def parse_input_file(filename: str, dict_mode: bool = False) -> Tuple[Dict[str, List[str]], List[Tuple[str, int]], List[Tuple[str, int]], List[str], List[str]]:
     """
     Parse the input file to extract categories, word structure rules, replacement rules, dictionary words, and syllabification rules.
     
     Returns:
-        Tuple of (categories, rules, replacement_rules, dict_words, syll_rules)
+        Tuple of (categories, weighted_rules, replacement_rules, dict_words, syll_rules)
+        where weighted_rules is List[Tuple[str, int]] with (rule, weight) pairs
     """
     categories = {}
-    rules = []
+    weighted_rules = []
     replacement_rules = []
     dict_words = []
     syll_rules = []
@@ -368,11 +436,28 @@ def parse_input_file(filename: str, dict_mode: bool = False) -> Tuple[Dict[str, 
                 replacement_rules.append((normalized_line, line_num))
             
             elif line_type == 'structure':
+                # Validate rule weight syntax
+                if not _validate_rule_weight_syntax(line_content.strip(), line_num):
+                    sys.exit(1)
+                
+                # Parse weighted rule
+                rule, weight = parse_weighted_rule(line_content.strip())
+                
                 # Expand the rule if it contains parentheses
-                expanded = expand_rule(line_content.strip())
-                rules.extend(expanded)
+                expanded = expand_rule(rule)
+                
+                # Add each expanded rule with the same weight
+                for expanded_rule in expanded:
+                    weighted_rules.append((expanded_rule, weight))
+                
+                # Print expansion information
                 if len(expanded) > 1:
-                    print(f"Expanded rule '{line_content.strip()}' into {len(expanded)} variants: {', '.join(expanded)}")
+                    if weight != 1:
+                        print(f"Expanded rule '{rule}' (weight {weight}) into {len(expanded)} variants: {', '.join(expanded)}")
+                    else:
+                        print(f"Expanded rule '{rule}' into {len(expanded)} variants: {', '.join(expanded)}")
+                elif weight != 1:
+                    print(f"Rule '{rule}' has weight {weight}")
             
             else:
                 print(f"Warning: Line {line_num} is not a valid category, replacement rule, or word structure rule: '{line_content}'")
@@ -384,4 +469,4 @@ def parse_input_file(filename: str, dict_mode: bool = False) -> Tuple[Dict[str, 
         print(f"Error reading input file: {e}")
         sys.exit(1)
     
-    return categories, rules, replacement_rules, dict_words, syll_rules
+    return categories, weighted_rules, replacement_rules, dict_words, syll_rules
