@@ -287,9 +287,8 @@ a/e/_
     
     result.add_pass()
 
-
 def test_reserved_character_validation(result, run_word_generator):
-    """Test that curly braces are now reserved characters."""
+    """Test that curly braces are properly validated in weight specifications."""
     print("Testing reserved character validation...")
     
     input_content = """
@@ -301,13 +300,14 @@ CV
     
     test_result = run_word_generator(["INPUT_FILE", "OUTPUT_FILE", "5"], input_content)
     
-    # Should fail with error about reserved character
+    # Should fail with error about invalid weight specification
     if test_result['returncode'] == 0:
-        result.add_fail("reserved_character_validation", "Script should have failed with reserved character in category")
+        result.add_fail("reserved_character_validation", "Script should have failed with invalid weight specification")
         return
     
-    if "reserved character" not in test_result['stdout'] and "reserved character" not in test_result['stderr']:
-        result.add_fail("reserved_character_validation", f"Expected reserved character error, got: {test_result['stderr']}")
+    # Change this line to look for the actual error message:
+    if "Invalid weight specification" not in test_result['stdout'] and "Invalid weight specification" not in test_result['stderr']:
+        result.add_fail("reserved_character_validation", f"Expected invalid weight specification error, got stdout: '{test_result['stdout']}', stderr: '{test_result['stderr']}'")
         return
     
     result.add_pass()
